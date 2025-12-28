@@ -1,24 +1,27 @@
-// --- FIREBASE IMPORTS ---
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+// --- FIREBASE IMPORTS (Updated to v12.7.0) ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-// --- HIDDEN DATABASE CONFIGURATION ---
+// --- NEW DATABASE CONFIGURATION ---
 const firebaseConfig = {
-    apiKey: "AIzaSyB8m6VkBmQ4LE8WjynNqOX0r9UB6-rJcU8",
-    authDomain: "whitebox-fee7f.firebaseapp.com",
-    projectId: "whitebox-fee7f",
-    storageBucket: "whitebox-fee7f.firebasestorage.app",
-    messagingSenderId: "410423371732",
-    appId: "1:410423371732:web:0b70c78af95aeb45115841",
-    measurementId: "G-KWCCP7WZ3H"
+    apiKey: "AIzaSyDmToqWOaBjODzAauhpxriCg-imiAKg-aQ",
+    authDomain: "bharat-student-platform.firebaseapp.com",
+    databaseURL: "https://bharat-student-platform-default-rtdb.firebaseio.com",
+    projectId: "bharat-student-platform",
+    storageBucket: "bharat-student-platform.firebasestorage.app",
+    messagingSenderId: "390311052094",
+    appId: "1:390311052094:web:93234b2311c1a44a87226f",
+    measurementId: "G-NDBKSP54N4"
 };
 
+// --- INITIALIZE DB (Silent Fail Safe) ---
 let db;
 try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    console.log("Firebase Init Success");
 } catch (e) {
-    console.log("Offline Mode: DB connection limited");
+    console.log("Offline Mode Active or Config Error");
 }
 
 // --- GLOBAL VARIABLES ---
@@ -42,8 +45,8 @@ window.handleLogin = async function() {
     spinner.style.display = 'block';
     err.style.display = 'none';
 
-    // --- MASTER KEY BYPASS ---
-    // User cannot see this in HTML
+    // --- MASTER KEY BYPASS (Always works) ---
+    // User cannot see this easily in the UI file
     if (keyVal === "Goku999" || keyVal === "LLAMA") {
         setTimeout(() => {
             window.unlockApp("ADMIN_ROOT", "ACTIVE");
@@ -53,16 +56,17 @@ window.handleLogin = async function() {
 
     // --- FIREBASE DB CHECK ---
     if (!db) {
-        // Fallback if network is totally dead
+        // Fallback if network/db is totally dead
         setTimeout(() => {
             spinner.style.display = 'none';
             err.style.display = 'block';
-            err.innerText = "Connection Failed. Try Master Key.";
+            err.innerText = "Connection Failed. Use Master Key.";
         }, 1500);
         return;
     }
 
     try {
+        // Checking 'access_keys' collection in Firestore
         const q = query(collection(db, "access_keys"), where("key_code", "==", keyVal));
         const snap = await getDocs(q);
         
@@ -181,7 +185,7 @@ window.runTransformer = async function() {
     const btn = document.getElementById('genBtn');
     
     // Safety Checks
-    if (typeof tf === 'undefined') { alert("AI Core Error"); return; }
+    if (typeof tf === 'undefined') { alert("AI Core Error (Check Internet)"); return; }
     if (window.historyData.length < 5) { alert("Need more data points"); return; }
     
     try {
