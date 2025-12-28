@@ -1,27 +1,26 @@
-// --- FIREBASE IMPORTS (Updated to v12.7.0) ---
+// --- 1. FIREBASE IMPORTS ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-// --- NEW DATABASE CONFIGURATION ---
+// --- 2. DATABASE CONFIGURATION (SILENT PRO) ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDmToqWOaBjODzAauhpxriCg-imiAKg-aQ",
-    authDomain: "bharat-student-platform.firebaseapp.com",
-    databaseURL: "https://bharat-student-platform-default-rtdb.firebaseio.com",
-    projectId: "bharat-student-platform",
-    storageBucket: "bharat-student-platform.firebasestorage.app",
-    messagingSenderId: "390311052094",
-    appId: "1:390311052094:web:93234b2311c1a44a87226f",
-    measurementId: "G-NDBKSP54N4"
+    apiKey: "AIzaSyA3RfbDykXvw0jUoQ7CVMNKgz4y_y4lSgQ",
+    authDomain: "silent-pro-c6e42.firebaseapp.com",
+    projectId: "silent-pro-c6e42",
+    storageBucket: "silent-pro-c6e42.firebasestorage.app",
+    messagingSenderId: "561276675694",
+    appId: "1:561276675694:web:6a99a57b2fa02b0a4de87f",
+    measurementId: "G-HGVKTXN0KZ"
 };
 
-// --- INITIALIZE DB (Silent Fail Safe) ---
+// --- 3. INITIALIZE DB (Silent Connection) ---
 let db;
 try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    console.log("Firebase Init Success");
+    console.log("Database Connected");
 } catch (e) {
-    console.log("Offline Mode Active or Config Error");
+    console.log("Offline Mode Active");
 }
 
 // --- GLOBAL VARIABLES ---
@@ -29,7 +28,7 @@ window.historyData = [];
 window.tempScannedData = [];
 const synth = window.speechSynthesis;
 
-// --- 1. UI FUNCTIONS (Attached to Window) ---
+// --- 4. UI FUNCTIONS ---
 
 window.uiStart = function() {
     document.getElementById('start-overlay').style.display = 'none';
@@ -37,6 +36,7 @@ window.uiStart = function() {
     window.speak("System Ready.");
 };
 
+// --- 5. LOGIN LOGIC (DB CHECK) ---
 window.handleLogin = async function() {
     var keyVal = document.getElementById('secretKey').value.trim();
     var spinner = document.getElementById('loadingSpinner');
@@ -45,18 +45,16 @@ window.handleLogin = async function() {
     spinner.style.display = 'block';
     err.style.display = 'none';
 
-    // --- MASTER KEY BYPASS (Always works) ---
-    // User cannot see this easily in the UI file
+    // --- MASTER KEY BYPASS (Offline Access) ---
     if (keyVal === "Goku999" || keyVal === "LLAMA") {
         setTimeout(() => {
-            window.unlockApp("ADMIN_ROOT", "ACTIVE");
+            window.unlockApp("ADMIN_ROOT (MASTER)", "ACTIVE");
         }, 600);
         return;
     }
 
-    // --- FIREBASE DB CHECK ---
+    // --- CHECK DATABASE ---
     if (!db) {
-        // Fallback if network/db is totally dead
         setTimeout(() => {
             spinner.style.display = 'none';
             err.style.display = 'block';
@@ -66,7 +64,7 @@ window.handleLogin = async function() {
     }
 
     try {
-        // Checking 'access_keys' collection in Firestore
+        // Database se key dhoondho
         const q = query(collection(db, "access_keys"), where("key_code", "==", keyVal));
         const snap = await getDocs(q);
         
@@ -76,8 +74,10 @@ window.handleLogin = async function() {
 
         let data = null; snap.forEach(d => data = d.data());
         
+        // Check Ban Status
         if (data.status === 'banned') throw new Error("ID Blocked");
         
+        // Check Expiry
         const now = new Date();
         const expiry = new Date(data.expires_at);
         if (now > expiry) throw new Error("Key Expired");
@@ -98,7 +98,7 @@ window.unlockApp = function(user, status) {
     window.speak("Access Granted.");
 };
 
-// --- 2. CORE UTILITIES ---
+// --- 6. CORE UTILITIES ---
 
 window.speak = function(text) {
     if (!synth) return;
@@ -118,7 +118,7 @@ window.typeWriter = function(text, elementId, speed = 15) {
     type();
 };
 
-// --- 3. DATA & LOGIC ---
+// --- 7. GAME DATA LOGIC ---
 
 window.add = function(num) {
     if (window.historyData.length >= 15) window.historyData.shift();
@@ -149,42 +149,11 @@ window.renderHistory = function() {
     document.getElementById('history-box').innerHTML = html;
 };
 
-// --- 4. VERIFICATION MODAL ---
-
-window.showVerifyScreen = function() {
-    const list = document.getElementById('editListContainer'); list.innerHTML = "";
-    window.tempScannedData.forEach((num, index) => {
-        let div = document.createElement('div'); div.className = 'edit-item';
-        div.innerHTML = `<span>#${index + 1}:</span><input type="number" class="edit-input" id="edit-num-${index}" value="${num}" min="0" max="9">`;
-        list.appendChild(div);
-    });
-    document.getElementById('verify-screen').style.display = 'flex';
-};
-
-window.closeVerify = function() { 
-    document.getElementById('verify-screen').style.display = 'none'; 
-};
-
-window.confirmVerify = function() {
-    let newHistory = [];
-    for (let i = 0; i < window.tempScannedData.length; i++) {
-        let val = document.getElementById(`edit-num-${i}`).value;
-        if (val !== "") { 
-            newHistory.push({ number: parseInt(val), type: (parseInt(val) >= 5) ? 'BIG' : 'SMALL' }); 
-        }
-    }
-    window.historyData = newHistory; 
-    window.renderHistory(); 
-    document.getElementById('verify-screen').style.display = 'none'; 
-    window.speak("Data Assimilated.");
-};
-
-// --- 5. AI ENGINE (TRANSFORMER SIMULATION) ---
+// --- 8. AI ENGINE (TRANSFORMER SIMULATION) ---
 
 window.runTransformer = async function() {
     const btn = document.getElementById('genBtn');
     
-    // Safety Checks
     if (typeof tf === 'undefined') { alert("AI Core Error (Check Internet)"); return; }
     if (window.historyData.length < 5) { alert("Need more data points"); return; }
     
@@ -192,11 +161,10 @@ window.runTransformer = async function() {
         btn.innerHTML = "⏳ PROCESSING..."; 
         window.speak("Calculating.");
         
-        // Prepare Data for TensorFlow
+        // Prepare Data
         const rawValues = window.historyData.map(d => d.type === 'BIG' ? 1 : 0);
         const xs = []; const ys = [];
         
-        // Sliding Window
         for(let i=0; i < rawValues.length - 1; i++) { 
             xs.push([[rawValues[i]]]); 
             ys.push([rawValues[i+1]]); 
@@ -253,7 +221,7 @@ window.runTransformer = async function() {
     }
 };
 
-// --- 6. OCR ENGINE ---
+// --- 9. OCR & VERIFICATION ---
 
 window.processImage = function(input) {
     if (input.files && input.files[0]) {
@@ -282,4 +250,32 @@ window.processImage = function(input) {
             document.getElementById('ocr-status').style.display = 'none';
         });
     }
+};
+
+window.showVerifyScreen = function() {
+    const list = document.getElementById('editListContainer'); list.innerHTML = "";
+    window.tempScannedData.forEach((num, index) => {
+        let div = document.createElement('div'); div.className = 'edit-item';
+        div.innerHTML = `<span>#${index + 1}:</span><input type="number" class="edit-input" id="edit-num-${index}" value="${num}" min="0" max="9">`;
+        list.appendChild(div);
+    });
+    document.getElementById('verify-screen').style.display = 'flex';
+};
+
+window.closeVerify = function() { 
+    document.getElementById('verify-screen').style.display = 'none'; 
+};
+
+window.confirmVerify = function() {
+    let newHistory = [];
+    for (let i = 0; i < window.tempScannedData.length; i++) {
+        let val = document.getElementById(`edit-num-${i}`).value;
+        if (val !== "") { 
+            newHistory.push({ number: parseInt(val), type: (parseInt(val) >= 5) ? 'BIG' : 'SMALL' }); 
+        }
+    }
+    window.historyData = newHistory; 
+    window.renderHistory(); 
+    document.getElementById('verify-screen').style.display = 'none'; 
+    window.speak("Data Assimilated.");
 };
