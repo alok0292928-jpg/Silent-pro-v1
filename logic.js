@@ -1,189 +1,118 @@
-// --- 1. FIREBASE IMPORTS ---
+// --- FIREBASE IMPORTS ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-// --- 2. DATABASE CONFIGURATION (SILENT PRO) ---
+// --- CONFIGURATION: BHARAT STUDENT PLATFORM ---
 const firebaseConfig = {
-    apiKey: "AIzaSyA3RfbDykXvw0jUoQ7CVMNKgz4y_y4lSgQ",
-    authDomain: "silent-pro-c6e42.firebaseapp.com",
-    projectId: "silent-pro-c6e42",
-    storageBucket: "silent-pro-c6e42.firebasestorage.app",
-    messagingSenderId: "561276675694",
-    appId: "1:561276675694:web:6a99a57b2fa02b0a4de87f",
-    measurementId: "G-HGVKTXN0KZ"
+    apiKey: "AIzaSyDmToqWOaBjODzAauhpxriCg-imiAKg-aQ",
+    authDomain: "bharat-student-platform.firebaseapp.com",
+    databaseURL: "https://bharat-student-platform-default-rtdb.firebaseio.com",
+    projectId: "bharat-student-platform",
+    storageBucket: "bharat-student-platform.firebasestorage.app",
+    messagingSenderId: "390311052094",
+    appId: "1:390311052094:web:93234b2311c1a44a87226f",
+    measurementId: "G-NDBKSP54N4"
 };
 
-// --- 3. INITIALIZE DB (Silent Connection) ---
+// --- INITIALIZE DB ---
 let db;
 try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    console.log("Database Connected");
+    console.log("DB Connected");
 } catch (e) {
-    console.log("Offline Mode Active");
+    console.log("Offline Mode");
 }
 
-// --- GLOBAL VARIABLES ---
-window.historyData = [];
-window.tempScannedData = [];
-const synth = window.speechSynthesis;
+// --- STATE ---
+let logicHistory = []; // Synced with UI
 
-// --- 4. UI FUNCTIONS ---
+// --- EXPORTED FUNCTIONS (Available to index.html) ---
 
-window.uiStart = function() {
-    document.getElementById('start-overlay').style.display = 'none';
-    document.getElementById('key-screen').style.display = 'flex';
-    window.speak("System Ready.");
+// 1. DATA SYNC
+window.updateLogicData = function(data) {
+    logicHistory = data;
 };
 
-// --- 5. LOGIN LOGIC (DB CHECK) ---
-window.handleLogin = async function() {
-    var keyVal = document.getElementById('secretKey').value.trim();
-    var spinner = document.getElementById('loadingSpinner');
-    var err = document.getElementById('error-msg');
+// 2. LOGIN LOGIC
+window.secureLogin = async function(keyVal) {
+    const spinner = document.getElementById('loadingSpinner');
+    const err = document.getElementById('error-msg');
     
     spinner.style.display = 'block';
     err.style.display = 'none';
 
-    // --- MASTER KEY BYPASS (Offline Access) ---
-    if (keyVal === "Goku999" || keyVal === "LLAMA") {
-        setTimeout(() => {
-            window.unlockApp("ADMIN_ROOT (MASTER)", "ACTIVE");
-        }, 600);
+    // MASTER KEY BYPASS
+    if (keyVal === "Goku999") {
+        setTimeout(() => { window.unlockUI("ADMIN (MASTER)"); }, 800);
         return;
     }
 
-    // --- CHECK DATABASE ---
+    // DB CHECK
     if (!db) {
         setTimeout(() => {
             spinner.style.display = 'none';
             err.style.display = 'block';
-            err.innerText = "Connection Failed. Use Master Key.";
+            err.innerText = "Connection Failed. Use Goku999";
         }, 1500);
         return;
     }
 
     try {
-        // Database se key dhoondho
-        const q = query(collection(db, "access_keys"), where("key_code", "==", keyVal));
+        const q = query(collection(db, "access_keys"), where("key_code", "==", keyVal.trim()));
         const snap = await getDocs(q);
         
-        if (snap.empty) {
-            throw new Error("Invalid Key");
-        }
-
-        let data = null; snap.forEach(d => data = d.data());
+        if (snap.empty) throw new Error("Invalid Key");
         
-        // Check Ban Status
+        let data = null; snap.forEach(d => data = d.data());
         if (data.status === 'banned') throw new Error("ID Blocked");
         
-        // Check Expiry
         const now = new Date();
         const expiry = new Date(data.expires_at);
         if (now > expiry) throw new Error("Key Expired");
 
-        window.unlockApp(data.owner, "VERIFIED");
+        window.unlockUI(data.owner);
 
     } catch (e) {
         spinner.style.display = 'none';
         err.style.display = 'block';
-        err.innerText = e.message; 
+        err.innerText = e.message;
     }
 };
 
-window.unlockApp = function(user, status) {
-    document.getElementById('key-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('userDisplay').innerText = "ID: " + user;
-    window.speak("Access Granted.");
-};
-
-// --- 6. CORE UTILITIES ---
-
-window.speak = function(text) {
-    if (!synth) return;
-    synth.cancel();
-    let u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US'; u.pitch = 1; u.rate = 1.1;
-    synth.speak(u);
-};
-
-window.typeWriter = function(text, elementId, speed = 15) {
-    let i = 0; let el = document.getElementById(elementId); el.innerHTML = "";
-    function type() { 
-        if (i < text.length) { 
-            el.innerHTML += text.charAt(i); i++; setTimeout(type, speed); 
-        } 
-    }
-    type();
-};
-
-// --- 7. GAME DATA LOGIC ---
-
-window.add = function(num) {
-    if (window.historyData.length >= 15) window.historyData.shift();
-    let type = (num >= 5) ? 'BIG' : 'SMALL';
-    window.historyData.push({ number: num, type: type });
-    window.renderHistory();
-    window.speak(num.toString());
-    document.getElementById('result-area').style.display = 'none';
-};
-
-window.clearHistory = function() { 
-    window.historyData = []; 
-    window.renderHistory(); 
-    document.getElementById('llama-chat').innerHTML = '<span style="color:#333;">// Neural Engine Ready...</span>'; 
-};
-
-window.renderHistory = function() {
-    let html = "";
-    window.historyData.forEach(item => {
-        let num = item.number;
-        let cssClass = "";
-        if (num === 0) cssClass = "bg-violet-red";
-        else if (num === 5) cssClass = "bg-violet-green";
-        else if ([1, 3, 7, 9].includes(num)) cssClass = "bg-green";
-        else cssClass = "bg-red";
-        html += `<div class="num-ball ${cssClass}">${num}</div>`;
-    });
-    document.getElementById('history-box').innerHTML = html;
-};
-
-// --- 8. AI ENGINE (TRANSFORMER SIMULATION) ---
-
-window.runTransformer = async function() {
+// 3. AI PREDICTION LOGIC
+window.runAnalysis = async function() {
     const btn = document.getElementById('genBtn');
     
-    if (typeof tf === 'undefined') { alert("AI Core Error (Check Internet)"); return; }
-    if (window.historyData.length < 5) { alert("Need more data points"); return; }
+    if (logicHistory.length < 5) { alert("Need 5+ Results"); return; }
+    if (typeof tf === 'undefined') { alert("AI Loading..."); return; }
+
+    btn.innerHTML = "⏳ CALCULATING...";
     
     try {
-        btn.innerHTML = "⏳ PROCESSING..."; 
-        window.speak("Calculating.");
-        
         // Prepare Data
-        const rawValues = window.historyData.map(d => d.type === 'BIG' ? 1 : 0);
+        const rawValues = logicHistory.map(d => d.type === 'BIG' ? 1 : 0);
         const xs = []; const ys = [];
         
-        for(let i=0; i < rawValues.length - 1; i++) { 
-            xs.push([[rawValues[i]]]); 
-            ys.push([rawValues[i+1]]); 
+        for(let i=0; i < rawValues.length - 1; i++) {
+            xs.push([[rawValues[i]]]);
+            ys.push([rawValues[i+1]]);
         }
-        
-        // Tensor Creation
-        const xTensor = tf.tensor3d(xs, [xs.length, 1, 1]); 
+
+        // Tensor
+        const xTensor = tf.tensor3d(xs, [xs.length, 1, 1]);
         const yTensor = tf.tensor2d(ys, [ys.length, 1]);
-        
-        // Model Definition
+
+        // Model
         const model = tf.sequential();
-        model.add(tf.layers.lstm({ units: 16, returnSequences: false, inputShape: [1, 1] }));
+        model.add(tf.layers.lstm({ units: 16, inputShape: [1, 1] }));
         model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
         model.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
-        
-        // Training (Silent)
+
+        // Train (Silent)
         await model.fit(xTensor, yTensor, { epochs: 30, verbose: 0 });
 
-        // Prediction
+        // Predict
         const lastVal = rawValues[rawValues.length - 1];
         const input = tf.tensor3d([[[lastVal]]], [1, 1, 1]);
         const output = model.predict(input);
@@ -192,90 +121,75 @@ window.runTransformer = async function() {
         // Cleanup
         xTensor.dispose(); yTensor.dispose(); input.dispose(); output.dispose();
 
-        // Interpret Result
+        // Result
         let prediction = prob > 0.5 ? "BIG" : "SMALL";
         let confidence = Math.floor(Math.abs(prob - 0.5) * 200);
         if(confidence < 60) confidence += 15; 
         if(confidence > 98) confidence = 98;
 
-        // Reasoning Text
-        let reasoning = `> Model: Llama-Tiny-v3\n> Context Window: ${window.historyData.length}\n`;
-        if(prob > 0.5) reasoning += `> Pattern: Momentum Positive.\n> Forecast: BIG (${confidence}%)`;
-        else reasoning += `> Pattern: Trend Reversal.\n> Forecast: SMALL (${confidence}%)`;
+        btn.innerHTML = "⚡ PREDICT NEXT";
+        window.showResultUI(prediction, confidence);
 
-        // Update UI
-        btn.innerHTML = "<span>⚡</span> RUN PREDICTION";
-        window.typeWriter(reasoning, 'llama-chat');
-        document.getElementById('result-area').style.display = 'block';
-        let resDiv = document.getElementById('final-result');
-        
-        if(prediction === 'BIG') resDiv.innerHTML = "<span style='color:#238636'>BIG</span>";
-        else resDiv.innerHTML = "<span style='color:#da3633'>SMALL</span>";
-        
-        document.getElementById('conf').innerText = `${confidence}% Probability`;
-        window.speak(prediction);
-
-    } catch (error) { 
-        console.error(error); 
-        btn.innerHTML = "ERROR"; 
+    } catch (e) {
+        console.error(e);
+        btn.innerHTML = "ERROR";
     }
 };
 
-// --- 9. OCR & VERIFICATION ---
-
+// 4. OCR LOGIC
 window.processImage = function(input) {
     if (input.files && input.files[0]) {
-        document.getElementById('ocr-status').style.display = 'block'; 
-        document.getElementById('ocr-status').innerText = "Scanning..."; 
-        window.speak("Scanning.");
+        document.getElementById('ocr-status').style.display = 'block';
         
         Tesseract.recognize(input.files[0], 'eng').then(({ data: { text } }) => {
-            let extracted = []; let lines = text.split('\n');
+            let extracted = []; 
+            let lines = text.split('\n');
+            
             lines.forEach(line => { 
                 if (/Big|Small|Green|Red/i.test(line)) { 
                     let m = line.match(/\b([0-9])\b/); 
                     if(m) extracted.push(parseInt(m[1])); 
                 } 
             });
+            
             if (extracted.length === 0) { 
                 let m = text.match(/\b\d\b/g); 
                 if(m) extracted = m.map(d=>parseInt(d)); 
             }
+
             if (extracted.length > 0) { 
-                window.tempScannedData = extracted.slice(0, 15).reverse(); 
-                window.showVerifyScreen(); 
+                // Auto-fill logic history
+                let newHist = [];
+                extracted.slice(0, 15).reverse().forEach(n => {
+                    newHist.push({ num: n, type: n>=5?'BIG':'SMALL' });
+                });
+                
+                // Update UI and Logic
+                window.uiHistory = newHist;
+                window.updateLogicData(newHist);
+                
+                // Manually trigger render in UI via a helper if needed, 
+                // or just alert user to refresh visual. 
+                // Better: Direct DOM Manipulation from here since we split files
+                const container = document.getElementById('history-row');
+                container.innerHTML = '';
+                newHist.forEach(h => {
+                    let colorClass = '';
+                    if(h.num===0) colorClass='bg-g-violet-red';
+                    else if(h.num===5) colorClass='bg-g-violet-green';
+                    else if([1,3,7,9].includes(h.num)) colorClass='bg-g-green';
+                    else colorClass='bg-g-red';
+                    const ball = document.createElement('div');
+                    ball.className = `min-w-[35px] h-[35px] rounded-full flex items-center justify-center font-bold text-white border border-white/20 ${colorClass}`;
+                    ball.innerText = h.num;
+                    container.appendChild(ball);
+                });
+
+                alert("Scan Complete!");
             } else { 
                 alert("Scan Failed. Try Manual."); 
             }
             document.getElementById('ocr-status').style.display = 'none';
         });
     }
-};
-
-window.showVerifyScreen = function() {
-    const list = document.getElementById('editListContainer'); list.innerHTML = "";
-    window.tempScannedData.forEach((num, index) => {
-        let div = document.createElement('div'); div.className = 'edit-item';
-        div.innerHTML = `<span>#${index + 1}:</span><input type="number" class="edit-input" id="edit-num-${index}" value="${num}" min="0" max="9">`;
-        list.appendChild(div);
-    });
-    document.getElementById('verify-screen').style.display = 'flex';
-};
-
-window.closeVerify = function() { 
-    document.getElementById('verify-screen').style.display = 'none'; 
-};
-
-window.confirmVerify = function() {
-    let newHistory = [];
-    for (let i = 0; i < window.tempScannedData.length; i++) {
-        let val = document.getElementById(`edit-num-${i}`).value;
-        if (val !== "") { 
-            newHistory.push({ number: parseInt(val), type: (parseInt(val) >= 5) ? 'BIG' : 'SMALL' }); 
-        }
-    }
-    window.historyData = newHistory; 
-    window.renderHistory(); 
-    document.getElementById('verify-screen').style.display = 'none'; 
-    window.speak("Data Assimilated.");
 };
